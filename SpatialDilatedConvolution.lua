@@ -18,7 +18,7 @@ function SpatialDilatedConvolution:createIODescriptors(input)
    end
    if parent.checkInputChanged(self, input) then
         -- create input descriptor
-        local input_slice = input:narrow(2,1,self.nInputPlane/self.groups)
+        local input_slice = input:narrow(2,1,self.nInputPlane)
         self.iDesc = cudnn.toDescriptor(input_slice)
         -- create conv descriptor
         self.padH, self.padW = self.padH or 0, self.padW or 0
@@ -32,7 +32,9 @@ function SpatialDilatedConvolution:createIODescriptors(input)
            padA = self.pad,
            filterStrideA = self.stride,
            dilationA = {self.dilationH, self.dilationW},
-           dataType = t_dataType
+           dataType = t_dataType,
+           mathType = 'CUDNN_DEFAULT_MATH',
+           groupCount = self.groups
         }
         self.convDesc = cudnn.setConvolutionDescriptor(self.convDescData)
 
@@ -41,11 +43,10 @@ function SpatialDilatedConvolution:createIODescriptors(input)
         cudnn.errcheck('cudnnGetConvolutionNdForwardOutputDim',
                  self.convDesc[0], self.iDesc[0],
                  self.weightDesc[0], 4, oSize:data())
-        oSize[2] = oSize[2] * self.groups
+        
         self.output:resize(oSize:long():storage())
         self.oSize = self.output:size()
-
-        local output_slice = self.output:narrow(2,1,self.nOutputPlane/self.groups)
+        local output_slice = self.output:narrow(2,1,self.nOutputPlane)
         -- create descriptor for output
         self.oDesc = cudnn.toDescriptor(output_slice)
         self.oDescForBias = cudnn.toDescriptor(self.output)
